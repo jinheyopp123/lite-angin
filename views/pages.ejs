@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>위키</title>
+</head>
+<body>
+    <h1>위키</h1>
+    <ul>
+        <% pages.forEach(page => { %>
+            <li>
+                <a href="/pages/<%= page.id %>"><%= page.title %></a>
+                <form action="/pages/<%= page.id %>/delete" method="post" style="display:inline;">
+                    <button type="submit">삭제</button>
+                </form>
+            </li>
+        <% }); %>
+    </ul>
+
+    <h2>새 문서 만들기</h2>
+    <form action="/pages" method="post">
+        <label for="title">제목:</label>
+        <input type="text" id="title" name="title" required>
+        <br>
+        <label for="content">내용:</label>
+        <textarea id="content" name="content" required></textarea>
+        <br>
+        <button type="submit">생성</button>
+    </form>
+</body>
+</html>
