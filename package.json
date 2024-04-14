@@ -4,7 +4,6 @@
   "description": "간단한 기능이 탑재된 Node.js Express 위키 엔진",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
     "start": "node app"
   },
   "keywords": [],
