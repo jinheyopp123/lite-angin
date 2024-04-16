@@ -12,7 +12,6 @@
   "dependencies": {
     "ejs": "^3.1.10",
     "express": "^4.19.2",
-    "markdown-it": "^14.1.0",
     "sqlite3": "^5.1.7"
   }
 }
