@@ -8,6 +8,13 @@
 <body>
     <h1>위키</h1>
     <ul>
+        <% if (username) { %>
+            <p>안녕하세요, <%= username %>님!</p>
+            <a href="/logout">로그아웃</a>
+        <% } else { %>
+            <a href="/login">로그인</a>
+            <a href="/register">회원가입</a>
+        <% } %>
         <% pages.forEach(page => { %>
             <li>
                 <a href="/pages/<%= page.id %>"><%= page.title %></a>
@@ -28,6 +35,6 @@
         <br>
         <button type="submit">생성</button>
     </form>
-<a href="//github.com/theseeduser/the-namu">the namu</a>
+    <a href="//github.com/theseeduser/the-namu">the namu</a>
 </body>
 </html>
