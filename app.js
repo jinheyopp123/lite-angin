@@ -1,5 +1,7 @@
 const express = require('express');
+const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
+const authRouter = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,68 +17,45 @@ db.serialize(() => {
         title TEXT,
         content TEXT
     )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        nickname TEXT
+    )`);
 });
 
 // Middleware
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: false }));
+app.use(session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: true
+}));
 
 // Routes
 app.get('/', (req, res) => {
     res.redirect('/pages');
 });
 
-// Get all pages
-app.get('/pages', (req, res) => {
-    db.all('SELECT * FROM pages', (err, rows) => {
-        if (err) {
-            console.error(err.message);
-            res.status(500).send('Internal Server Error');
-        } else {
-            res.render('pages', { pages: rows });
-        }
-    });
+app.use('/', authRouter);
+
+app.get('/profile', (req, res) => {
+    if (!req.session.userId) {
+        res.redirect('/login');
+    } else {
+        res.render('profile', { username: req.session.username, nickname: req.session.nickname });
+    }
 });
 
-// Get single page
-app.get('/pages/:id', (req, res) => {
-    const id = req.params.id;
-    db.get('SELECT * FROM pages WHERE id = ?', [id], (err, row) => {
-        if (err) {
-            console.error(err.message);
-            res.status(500).send('Internal Server Error');
-        } else if (!row) {
-            res.status(404).send('Page not found');
-        } else {
-            res.render('page', { page: row });
-        }
-    });
+app.get('/login', (req, res) => {
+    res.render('login');
 });
 
-// Create new page
-app.post('/pages', (req, res) => {
-    const { title, content } = req.body;
-    db.run('INSERT INTO pages (title, content) VALUES (?, ?)', [title, content], (err) => {
-        if (err) {
-            console.error(err.message);
-            res.status(500).send('Internal Server Error');
-        } else {
-            res.redirect('/pages');
-        }
-    });
-});
-
-// Delete page
-app.post('/pages/:id/delete', (req, res) => {
-    const id = req.params.id;
-    db.run('DELETE FROM pages WHERE id = ?', [id], (err) => {
-        if (err) {
-            console.error(err.message);
-            res.status(500).send('Internal Server Error');
-        } else {
-            res.redirect('/pages');
-        }
-    });
+app.get('/register', (req, res) => {
+    res.render('register');
 });
 
 // Server
