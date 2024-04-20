@@ -4,14 +4,17 @@
   "description": "간단한 기능이 탑재된 Node.js Express 위키 엔진",
   "main": "index.js",
   "scripts": {
-    "start": "node app"
+    "start": "node app",
+    "refresh": "rm -rf node_modules && npm install"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "ejs": "^3.1.10",
     "express": "^4.19.2",
+    "express-session": "^1.18.0",
     "sqlite3": "^5.1.7"
   }
 }
