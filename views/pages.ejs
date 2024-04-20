@@ -1,40 +1,64 @@
+<!-- pages.ejs -->
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>위키</title>
+    <style>
+        .navbar {
+            text-align: right;
+            padding: 10px;
+        }
+        .navbar a {
+            margin-left: 10px;
+        }
+        .error-message {
+            color: red;
+        }
+    </style>
 </head>
 <body>
     <h1>위키</h1>
-    <ul>
+    <div class="navbar">
         <% if (username) { %>
-            <p>안녕하세요, <%= username %>님!</p>
+            <span>사용자: <%= username %></span>
+            <% if (isAdmin) { %>
+                <span>, 관리자</span>
+            <% } %>
             <a href="/logout">로그아웃</a>
         <% } else { %>
             <a href="/login">로그인</a>
             <a href="/register">회원가입</a>
         <% } %>
+    </div>
+    <ul>
         <% pages.forEach(page => { %>
             <li>
-                <a href="/pages/<%= page.id %>"><%= page.title %></a>
-                <form action="/pages/<%= page.id %>/delete" method="post" style="display:inline;">
-                    <button type="submit">삭제</button>
-                </form>
+                <a href="/pages/<%= page.id %>"><%= page.title %> - 사용자: <%= page.createdBy %></a>
+                <% if (isAdmin || username === page.createdBy) { %>
+                    <form action="/pages/<%= page.id %>/delete" method="post" style="display:inline;">
+                        <button type="submit">삭제</button>
+                    </form>
+                <% } %>
             </li>
         <% }); %>
     </ul>
-
-    <h2>새 문서 만들기</h2>
-    <form action="/pages" method="post">
-        <label for="title">제목:</label>
-        <input type="text" id="title" name="title" required>
-        <br>
-        <label for="content">내용:</label>
-        <textarea id="content" name="content" required></textarea>
-        <br>
-        <button type="submit">생성</button>
-    </form>
-    <a href="//github.com/theseeduser/the-namu">the namu</a>
+    <% if (username) { %>
+        <h2>새 문서 만들기</h2>
+        <form action="/pages" method="post">
+            <label for="title">제목:</label>
+            <input type="text" id="title" name="title" required>
+            <br>
+            <label for="content">내용:</label>
+            <textarea id="content" name="content" required></textarea>
+            <br>
+            <button type="submit">생성</button>
+        </form>
+    <% } else { %>
+        <p class="error-message">[오류!] 현재 로그인이 안되어있습니다.</p>
+    <% } %>
+    <a href="https://github.com/jinheyopp123/lite-angin">lite angin</a>
 </body>
 </html>
