@@ -12,21 +12,24 @@ const db = new sqlite3.Database(DB_PATH);
 
 // Create database and table if not exists
 db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        password TEXT,
+        isAdmin INTEGER DEFAULT 0
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS pages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT,
         content TEXT,
         createdBy TEXT
-    )`, (err) => {
-        if (err) {
-            console.error(err.message);
-        } else {
-            // createdBy 컬럼이 존재하지 않을 경우에만 추가
-            db.run(`ALTER TABLE pages ADD COLUMN createdBy TEXT DEFAULT ''`, (err) => {
-                if (err) {
-                    console.error(err.message);
-                }
-            });
+    )`);
+
+    // 최초 가입자에게 관리자 권한을 부여
+    db.get('SELECT * FROM users WHERE isAdmin = 1', (err, row) => {
+        if (!row) {
+            db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['admin', 'admin123', 1]);
         }
     });
 });
@@ -37,7 +40,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(session({
     secret: 'your-secret-key',
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: true,
+    cookie: { secure: false } // secure 옵션이 false일 경우 HTTP에서도 쿠키를 사용할 수 있습니다.
 }));
 
 // 라우트 설정
@@ -75,44 +79,52 @@ app.post('/pages', (req, res) => {
     }
 });
 
-// 게시물 상세 페이지 라우팅
-app.get('/pages/:id', (req, res) => {
-    const id = req.params.id;
-    db.get('SELECT * FROM pages WHERE id = ?', [id], (err, page) => {
+// 페이지 삭제 라우트
+app.post('/pages/:id/delete', (req, res) => {
+    const userId = req.session.userId;
+    const { id } = req.params;
+    db.get('SELECT createdBy FROM pages WHERE id = ?', id, (err, page) => {
         if (err) {
             console.error(err.message);
             res.status(500).send('서버 오류');
         } else if (!page) {
-            res.status(404).send('게시물을 찾을 수 없습니다.');
+            res.status(404).send('페이지를 찾을 수 없습니다.');
+        } else if (page.createdBy !== req.session.username) {
+            res.status(403).send('해당 페이지를 삭제할 권한이 없습니다.');
         } else {
-            res.render('page', { page, username: req.session.username, isAdmin: req.session.isAdmin });
+            db.run('DELETE FROM pages WHERE id = ?', id, (err) => {
+                if (err) {
+                    console.error(err.message);
+                    res.status(500).send('서버 오류');
+                } else {
+                    res.redirect('/pages');
+                }
+            });
         }
     });
 });
 
-// 게시물 삭제 라우팅
-app.post('/pages/:id/delete', (req, res) => {
-    if (!req.session.userId) {
-        res.status(403).send('로그인이 필요합니다.');
-    } else {
-        const id = req.params.id;
-        db.run('DELETE FROM pages WHERE id = ?', [id], (err) => {
-            if (err) {
-                console.error(err.message);
-                res.status(500).send('서버 오류');
-            } else {
-                res.redirect('/pages');
-            }
-        });
-    }
+// 페이지 상세 보기 라우트
+app.get('/pages/:id', (req, res) => {
+    const { id } = req.params;
+    db.get('SELECT * FROM pages WHERE id = ?', id, (err, page) => {
+        if (err) {
+            console.error(err.message);
+            res.status(500).send('서버 오류');
+        } else if (!page) {
+            res.status(404).send('페이지를 찾을 수 없습니다.');
+        } else {
+            res.render('page', { page });
+        }
+    });
 });
 
-// 로그인 페이지 라우팅
+// 로그인 라우트
 app.get('/login', (req, res) => {
     res.render('login');
 });
 
-// 회원가입 페이지 라우팅
+// 회원가입 라우트
 app.get('/register', (req, res) => {
     res.render('register');
 });
