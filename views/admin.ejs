@@ -1,1 +1,19 @@
-
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>권한 부여</title>
+</head>
+<body>
+    <h1>권한 부여</h1>
+    <ul>
+        <% users.forEach(user => { %>
+            <li>
+                <a href="/grant/<%= user.id %>"><%= user.nickname %></a>
+            </li>
+        <% }); %>
+    </ul>
+    <a href="/">홈으로</a>
+</body>
+</html>
