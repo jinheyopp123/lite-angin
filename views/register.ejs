@@ -1,1 +1,26 @@
+<!-- register.ejs -->
 
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입</title>
+</head>
+<body>
+    <h1>회원가입</h1>
+    <form action="/register" method="post">
+        <label for="username">사용자 이름:</label>
+        <input type="text" id="username" name="username" required>
+        <br>
+        <label for="password">비밀번호:</label>
+        <input type="password" id="password" name="password" required>
+        <br>
+        <!-- 주의사항 추가 -->
+        <p style="color: red;">[주의사항] 아직 탈퇴 기능은 구현되지 않았습니다.</p>
+        <!-- 주의사항 추가 끝 -->
+        <button type="submit">가입</button>
+    </form>
+    <a href="/">홈으로</a>
+</body>
+</html>
