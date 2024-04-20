@@ -89,9 +89,7 @@ app.post('/pages/:id/delete', (req, res) => {
             res.status(500).send('서버 오류');
         } else if (!page) {
             res.status(404).send('페이지를 찾을 수 없습니다.');
-        } else if (page.createdBy !== req.session.username) {
-            res.status(403).send('해당 페이지를 삭제할 권한이 없습니다.');
-        } else {
+        } else if (req.session.isAdmin || req.session.username === page.createdBy) {
             db.run('DELETE FROM pages WHERE id = ?', id, (err) => {
                 if (err) {
                     console.error(err.message);
@@ -100,6 +98,8 @@ app.post('/pages/:id/delete', (req, res) => {
                     res.redirect('/pages');
                 }
             });
+        } else {
+            res.status(403).send('해당 페이지를 삭제할 권한이 없습니다.');
         }
     });
 });
@@ -114,7 +114,8 @@ app.get('/pages/:id', (req, res) => {
         } else if (!page) {
             res.status(404).send('페이지를 찾을 수 없습니다.');
         } else {
-            res.render('page', { page });
+            const canDelete = req.session.isAdmin || req.session.username === page.createdBy;
+            res.render('page', { page, canDelete });
         }
     });
 });
