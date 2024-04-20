@@ -1,5 +1,3 @@
-// auth.js
-
 const express = require('express');
 const bcrypt = require('bcrypt');
 const sqlite3 = require('sqlite3').verbose();
@@ -19,14 +17,11 @@ router.post('/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // 사용자 생성
-        db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', [username, hashedPassword, req.session.isFirstUser ? 1 : 0], (err) => {
+        db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword], (err) => {
             if (err) {
                 console.error(err.message);
                 res.status(500).send('회원가입에 실패했습니다.');
             } else {
-                if (req.session.isFirstUser) {
-                    req.session.isFirstUser = false; // 최초 가입자 플래그 해제
-                }
                 res.redirect('/login');
             }
         });
@@ -53,7 +48,6 @@ router.post('/login', async (req, res) => {
             if (passwordMatch) {
                 req.session.userId = row.id; // 세션에 사용자 ID 저장
                 req.session.username = row.username; // 세션에 사용자 이름 저장
-                req.session.isAdmin = row.isAdmin; // 세션에 관리자 여부 저장
                 res.redirect('/pages');
             } else {
                 res.status(401).send('비밀번호가 일치하지 않습니다.');
@@ -67,40 +61,12 @@ router.get('/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) {
             console.error(err);
-            res.status(500).send('로그아웃에 실패했습니다.');
+            res.status(500).send('로그아웃에 실패했습니다. 다시 시도 해주세요.');
         } else {
-            res.redirect('/login');
-        }
-    });
-});
-
-// 권한 부여 페이지 라우팅
-router.get('/grant', (req, res) => {
-    if (!req.session.isAdmin) {
-        res.status(403).send('권한이 부족합니다.');
-    } else {
-        db.all('SELECT username FROM users WHERE isAdmin = 0', (err, users) => {
-            if (err) {
-                console.error(err.message);
-                res.status(500).send('서버 오류');
-            } else {
-                res.render('grant', { users });
-            }
-        });
-    }
-});
-
-// 권한 부여 처리
-router.post('/grant', (req, res) => {
-    const { username } = req.body;
-    db.run('UPDATE users SET isAdmin = 1 WHERE username = ?', [username], (err) => {
-        if (err) {
-            console.error(err.message);
-            res.status(500).send('서버 오류');
-        } else {
-            res.redirect('/pages');
+            res.redirect('/');
         }
     });
 });
 
 module.exports = router;
+
