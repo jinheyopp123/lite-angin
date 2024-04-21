@@ -2,13 +2,11 @@ const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const fs = require('fs');
 const authRouter = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_PATH = './wiki.db';
-const PERMISSIONS_FILE_PATH = './permissions.json';
 
 // 데이터베이스 설정
 const db = new sqlite3.Database(DB_PATH);
@@ -30,13 +28,6 @@ db.serialize(() => {
         content TEXT,
         createdBy TEXT
     )`);
-
-    // 최초 가입자에게 관리자 권한을 부여
-    db.get('SELECT * FROM users WHERE isAdmin = 1', (err, row) => {
-        if (!row) {
-            db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['admin', 'admin123', 1]);
-        }
-    });
 });
 
 // 미들웨어 설정
@@ -167,41 +158,6 @@ app.post('/blocked', (req, res) => {
         });
     }
 });
-
-// 권한 업데이트 라우트
-app.post('/updatePermissions', (req, res) => {
-    const { username, isAdmin } = req.body;
-    updatePermissions(username, isAdmin);
-    res.redirect('/permissions');
-});
-
-// 사용자 정보를 업데이트하고 permissions.json 파일을 업데이트하는 함수
-function updatePermissions(username, isAdmin) {
-    // 파일에서 기존 데이터 읽기
-    let data = [];
-    try {
-        data = JSON.parse(fs.readFileSync(PERMISSIONS_FILE_PATH, 'utf8'));
-    } catch (error) {
-        console.error('permissions.json 파일을 읽는 도중 오류 발생:', error);
-    }
-
-    // 새로운 사용자 정보 추가 또는 업데이트
-    const existingUserIndex = data.findIndex(user => user.username === username);
-    if (existingUserIndex !== -1) {
-        data[existingUserIndex].isAdmin = isAdmin;
-    } else {
-        data.push({ username, isAdmin });
-    }
-
-    // 파일에 데이터 쓰기
-    fs.writeFile(PERMISSIONS_FILE_PATH, JSON.stringify(data, null, 2), (err) => {
-        if (err) {
-            console.error('permissions.json 파일을 쓰는 도중 오류 발생:', err);
-        } else {
-            console.log('권한 정보를 성공적으로 업데이트하였습니다.');
-        }
-    });
-}
 
 function calculateBlockedUntil(duration) {
     const now = new Date();
