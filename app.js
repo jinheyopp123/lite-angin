@@ -3,10 +3,12 @@ const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const authRouter = require('./auth');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_PATH = './wiki.db';
+const PERMISSIONS_FILE = './permissions.json';
 
 // 데이터베이스 설정
 const db = new sqlite3.Database(DB_PATH);
@@ -48,13 +50,28 @@ app.get('/', (req, res) => {
 app.use('/', authRouter);
 
 app.get('/pages', (req, res) => {
-    db.all('SELECT * FROM pages', (err, pages) => {
+    fs.readFile(PERMISSIONS_FILE, 'utf8', (err, data) => {
         if (err) {
             console.error(err.message);
             res.status(500).send('서버 오류');
-        } else {
-            res.render('pages', { pages, username: req.session.username, isAdmin: req.session.isAdmin });
+            return;
         }
+        
+        const permissions = JSON.parse(data);
+        const currentUserPermission = permissions.find(p => p.username === req.session.username);
+        if (!currentUserPermission || !currentUserPermission.isAdmin) {
+            res.status(403).send('권한이 부족합니다.');
+            return;
+        }
+
+        db.all('SELECT * FROM pages', (err, pages) => {
+            if (err) {
+                console.error(err.message);
+                res.status(500).send('서버 오류');
+            } else {
+                res.render('pages', { pages, username: req.session.username, isAdmin: req.session.isAdmin });
+            }
+        });
     });
 });
 
