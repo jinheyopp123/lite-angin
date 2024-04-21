@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
 const authRouter = require('./auth');
 
 const app = express();
@@ -16,7 +17,9 @@ db.serialize(() => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
         password TEXT,
-        isAdmin INTEGER DEFAULT 0
+        isAdmin INTEGER DEFAULT 0,
+        blocked INTEGER DEFAULT 0,
+        blockedUntil TEXT
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS pages (
@@ -129,6 +132,55 @@ app.get('/login', (req, res) => {
 app.get('/register', (req, res) => {
     res.render('register');
 });
+
+// 차단된 사용자 페이지 라우트
+app.get('/blocked', (req, res) => {
+    if (!req.session.isAdmin) {
+        res.status(403).send('권한이 부족합니다.');
+    } else {
+        db.all('SELECT username FROM users WHERE blocked = 1', (err, users) => {
+            if (err) {
+                console.error(err.message);
+                res.status(500).send('서버 오류');
+            } else {
+                res.render('blocked', { users });
+            }
+        });
+    }
+});
+
+app.post('/blocked', (req, res) => {
+    if (!req.session.isAdmin) {
+        res.status(403).send('권한이 부족합니다.');
+    } else {
+        const { username, duration } = req.body;
+        const blockedUntil = calculateBlockedUntil(duration);
+        db.run('UPDATE users SET blocked = 1, blockedUntil = ? WHERE username = ?', [blockedUntil, username], (err) => {
+            if (err) {
+                console.error(err.message);
+                res.status(500).send('서버 오류');
+            } else {
+                res.redirect('/blocked');
+            }
+        });
+    }
+});
+
+function calculateBlockedUntil(duration) {
+    const now = new Date();
+    switch (duration) {
+        case '1second':
+            return new Date(now.getTime() + 1000);
+        case '2weeks':
+            return new Date(now.getTime() + (2 * 7 * 24 * 60 * 60 * 1000));
+        case '1month':
+            return new Date(now.setMonth(now.getMonth() + 1));
+        case 'permanent':
+            return 'permanent';
+        default:
+            return null;
+    }
+}
 
 app.listen(PORT, () => {
     console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다`);
