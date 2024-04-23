@@ -2,13 +2,12 @@ const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
-const authRouter = require('./auth');
 const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_PATH = './wiki.db';
-const PERMISSIONS_FILE = './permissions.json';
+const SALT_ROUNDS = 10;
 
 // 데이터베이스 설정
 const db = new sqlite3.Database(DB_PATH);
@@ -17,11 +16,9 @@ const db = new sqlite3.Database(DB_PATH);
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT,
+        username TEXT UNIQUE,
         password TEXT,
-        isAdmin INTEGER DEFAULT 0,
-        blocked INTEGER DEFAULT 0,
-        blockedUntil TEXT
+        isAdmin INTEGER DEFAULT 0
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS pages (
@@ -47,31 +44,14 @@ app.get('/', (req, res) => {
     res.redirect('/pages');
 });
 
-app.use('/', authRouter);
-
 app.get('/pages', (req, res) => {
-    fs.readFile(PERMISSIONS_FILE, 'utf8', (err, data) => {
+    db.all('SELECT * FROM pages', (err, pages) => {
         if (err) {
             console.error(err.message);
             res.status(500).send('서버 오류');
-            return;
+        } else {
+            res.render('pages', { pages, username: req.session.username, isAdmin: req.session.isAdmin });
         }
-        
-        const permissions = JSON.parse(data);
-        const currentUserPermission = permissions.find(p => p.username === req.session.username);
-        if (!currentUserPermission || !currentUserPermission.isAdmin) {
-            res.status(403).send('권한이 부족합니다.');
-            return;
-        }
-
-        db.all('SELECT * FROM pages', (err, pages) => {
-            if (err) {
-                console.error(err.message);
-                res.status(500).send('서버 오류');
-            } else {
-                res.render('pages', { pages, username: req.session.username, isAdmin: req.session.isAdmin });
-            }
-        });
     });
 });
 
@@ -92,7 +72,6 @@ app.post('/pages', (req, res) => {
     }
 });
 
-// 페이지 삭제 라우트
 app.post('/pages/:id/delete', (req, res) => {
     const userId = req.session.userId;
     const { id } = req.params;
@@ -117,7 +96,6 @@ app.post('/pages/:id/delete', (req, res) => {
     });
 });
 
-// 페이지 상세 보기 라우트
 app.get('/pages/:id', (req, res) => {
     const { id } = req.params;
     db.get('SELECT * FROM pages WHERE id = ?', id, (err, page) => {
@@ -133,64 +111,63 @@ app.get('/pages/:id', (req, res) => {
     });
 });
 
-// 로그인 라우트
 app.get('/login', (req, res) => {
     res.render('login');
 });
 
-// 회원가입 라우트
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    db.get('SELECT * FROM users WHERE username = ?', username, (err, user) => {
+        if (err) {
+            console.error(err.message);
+            res.status(500).send('서버 오류');
+        } else if (!user) {
+            res.status(404).send('사용자를 찾을 수 없습니다.');
+        } else {
+            bcrypt.compare(password, user.password, (err, result) => {
+                if (err) {
+                    console.error(err.message);
+                    res.status(500).send('서버 오류');
+                } else if (!result) {
+                    res.status(401).send('비밀번호가 일치하지 않습니다.');
+                } else {
+                    req.session.userId = user.id;
+                    req.session.username = user.username;
+                    req.session.isAdmin = user.isAdmin === 1;
+                    res.redirect('/pages');
+                }
+            });
+        }
+    });
+});
+
+app.get('/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('/');
+});
+
 app.get('/register', (req, res) => {
     res.render('register');
 });
 
-// 차단된 사용자 페이지 라우트
-app.get('/blocked', (req, res) => {
-    if (!req.session.isAdmin) {
-        res.status(403).send('권한이 부족합니다.');
-    } else {
-        db.all('SELECT username FROM users WHERE blocked = 1', (err, users) => {
-            if (err) {
-                console.error(err.message);
-                res.status(500).send('서버 오류');
-            } else {
-                res.render('blocked', { users });
-            }
-        });
-    }
+app.post('/register', (req, res) => {
+    const { username, password } = req.body;
+    bcrypt.hash(password, SALT_ROUNDS, (err, hash) => {
+        if (err) {
+            console.error(err.message);
+            res.status(500).send('서버 오류');
+        } else {
+            db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash], (err) => {
+                if (err) {
+                    console.error(err.message);
+                    res.status(500).send('서버 오류');
+                } else {
+                    res.redirect('/login');
+                }
+            });
+        }
+    });
 });
-
-app.post('/blocked', (req, res) => {
-    if (!req.session.isAdmin) {
-        res.status(403).send('권한이 부족합니다.');
-    } else {
-        const { username, duration } = req.body;
-        const blockedUntil = calculateBlockedUntil(duration);
-        db.run('UPDATE users SET blocked = 1, blockedUntil = ? WHERE username = ?', [blockedUntil, username], (err) => {
-            if (err) {
-                console.error(err.message);
-                res.status(500).send('서버 오류');
-            } else {
-                res.redirect('/blocked');
-            }
-        });
-    }
-});
-
-function calculateBlockedUntil(duration) {
-    const now = new Date();
-    switch (duration) {
-        case '1second':
-            return new Date(now.getTime() + 1000);
-        case '2weeks':
-            return new Date(now.getTime() + (2 * 7 * 24 * 60 * 60 * 1000));
-        case '1month':
-            return new Date(now.setMonth(now.getMonth() + 1));
-        case 'permanent':
-            return 'permanent';
-        default:
-            return null;
-    }
-}
 
 app.listen(PORT, () => {
     console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다`);
