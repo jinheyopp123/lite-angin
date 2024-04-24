@@ -1,13 +1,11 @@
 const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
-const fs = require('fs');
+const authRouter = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_PATH = './wiki.db';
-const SALT_ROUNDS = 10;
 
 // 데이터베이스 설정
 const db = new sqlite3.Database(DB_PATH);
@@ -16,7 +14,7 @@ const db = new sqlite3.Database(DB_PATH);
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
+        username TEXT,
         password TEXT,
         isAdmin INTEGER DEFAULT 0
     )`);
@@ -27,6 +25,13 @@ db.serialize(() => {
         content TEXT,
         createdBy TEXT
     )`);
+
+    // 최초 가입자에게 관리자 권한을 부여
+    db.get('SELECT * FROM users ORDER BY id ASC LIMIT 1', (err, row) => {
+        if (!row) {
+            db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['admin', 'admin123', 1]);
+        }
+    });
 });
 
 // 미들웨어 설정
@@ -43,6 +48,8 @@ app.use(session({
 app.get('/', (req, res) => {
     res.redirect('/pages');
 });
+
+app.use('/', authRouter);
 
 app.get('/pages', (req, res) => {
     db.all('SELECT * FROM pages', (err, pages) => {
@@ -72,6 +79,7 @@ app.post('/pages', (req, res) => {
     }
 });
 
+// 페이지 삭제 라우트
 app.post('/pages/:id/delete', (req, res) => {
     const userId = req.session.userId;
     const { id } = req.params;
@@ -96,6 +104,7 @@ app.post('/pages/:id/delete', (req, res) => {
     });
 });
 
+// 페이지 상세 보기 라우트
 app.get('/pages/:id', (req, res) => {
     const { id } = req.params;
     db.get('SELECT * FROM pages WHERE id = ?', id, (err, page) => {
@@ -111,62 +120,19 @@ app.get('/pages/:id', (req, res) => {
     });
 });
 
+// 로그인 라우트
 app.get('/login', (req, res) => {
     res.render('login');
 });
 
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    db.get('SELECT * FROM users WHERE username = ?', username, (err, user) => {
-        if (err) {
-            console.error(err.message);
-            res.status(500).send('서버 오류');
-        } else if (!user) {
-            res.status(404).send('사용자를 찾을 수 없습니다.');
-        } else {
-            bcrypt.compare(password, user.password, (err, result) => {
-                if (err) {
-                    console.error(err.message);
-                    res.status(500).send('서버 오류');
-                } else if (!result) {
-                    res.status(401).send('비밀번호가 일치하지 않습니다.');
-                } else {
-                    req.session.userId = user.id;
-                    req.session.username = user.username;
-                    req.session.isAdmin = user.isAdmin === 1;
-                    res.redirect('/pages');
-                }
-            });
-        }
-    });
-});
-
-app.get('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/');
-});
-
+// 회원가입 라우트
 app.get('/register', (req, res) => {
     res.render('register');
 });
 
-app.post('/register', (req, res) => {
-    const { username, password } = req.body;
-    bcrypt.hash(password, SALT_ROUNDS, (err, hash) => {
-        if (err) {
-            console.error(err.message);
-            res.status(500).send('서버 오류');
-        } else {
-            db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash], (err) => {
-                if (err) {
-                    console.error(err.message);
-                    res.status(500).send('서버 오류');
-                } else {
-                    res.redirect('/login');
-                }
-            });
-        }
-    });
+// 차단된 사용자 페이지 라우트
+app.get('/blocked', (req, res) => {
+    res.render('blocked');
 });
 
 app.listen(PORT, () => {
