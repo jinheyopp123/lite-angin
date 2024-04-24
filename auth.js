@@ -11,6 +11,11 @@ const db = new sqlite3.Database(DB_PATH);
 // 회원가입 처리
 router.post('/register', async (req, res) => {
     const { username, password } = req.body;
+  
+     // 사용자 이름에 공백이 포함되어 있는지 확인
+    if (/\s/.test(username)) {
+        return res.status(400).send('사용자 이름에는 공백을 포함할 수 없습니다.');
+    }
 
     try {
         // 패스워드 해시 생성
@@ -68,5 +73,4 @@ router.get('/logout', (req, res) => {
     });
 });
 
-module.exports = router;
-
+module.exports = router
