@@ -36,7 +36,7 @@ db.serialize(() => {
                     console.error(err);
                     return;
                 }
-                db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['관리자', hash, 1]);
+                db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['관리자', admin123, 1]); //* 먼저 서버열기전 이 비밀번호부분을 자기껄로 바꿔주세요
             });
         }
     });
