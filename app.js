@@ -26,12 +26,13 @@ db.serialize(() => {
         createdBy TEXT
     )`);
 
-    // 최초 가입자에게 관리자 권한을 부여
-    db.get('SELECT * FROM users ORDER BY id ASC LIMIT 1', (err, row) => {
-        if (!row) {
-            db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['admin', 'admin123', 1]);
-        }
-    });
+// 최초 가입자에게 관리자 권한을 부여
+db.get('SELECT * FROM users ORDER BY id ASC LIMIT 1', (err, row) => {
+    if (!row) {
+        db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['관리자', '0000', 1]);
+    }
+});
+
 });
 
 // 미들웨어 설정
@@ -138,3 +139,4 @@ app.get('/blocked', (req, res) => {
 app.listen(PORT, () => {
     console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다`);
 });
+
