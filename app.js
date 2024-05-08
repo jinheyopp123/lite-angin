@@ -14,11 +14,12 @@ const db = new sqlite3.Database(DB_PATH);
 // 최초 가입자에게 기본 권한을 부여
 db.get('SELECT * FROM users ORDER BY id ASC LIMIT 1', (err, row) => {
     if (!row) {
+        const defaultUsername = 'first_user'; // 기본 사용자 이름
         bcrypt.hash('admin123', 10, (err, hashedPassword) => {
             if (err) {
                 console.error('비밀번호 해싱 실패:', err);
             } else {
-                db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['first_user', hashedPassword, 1], (err) => {  //*여기에서 first_user을 자기가 하고싶은걸로 하고 가입하여야 합니다.
+                db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', [defaultUsername, hashedPassword, 1], (err) => {
                     if (err) {
                         console.error('사용자 추가 실패:', err);
                     } else {
