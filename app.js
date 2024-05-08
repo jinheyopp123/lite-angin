@@ -1,8 +1,6 @@
 const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
-
 const authRouter = require('./auth');
 
 const app = express();
@@ -31,13 +29,7 @@ db.serialize(() => {
     // 최초 가입자에게 관리자 권한을 부여
     db.get('SELECT * FROM users ORDER BY id ASC LIMIT 1', (err, row) => {
         if (!row) {
-            bcrypt.hash('0000', 10, (err, hash) => {
-                if (err) {
-                    console.error(err);
-                    return;
-                }
-                db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['관리자', admin123, 1]); //* 먼저 서버열기전 이 비밀번호부분을 자기껄로 바꿔주세요
-            });
+            db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['admin', 'admin123', 1]);
         }
     });
 });
