@@ -1,7 +1,6 @@
 const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
 const authRouter = require('./auth');
 
 const app = express();
@@ -11,24 +10,28 @@ const DB_PATH = './wiki.db';
 // 데이터베이스 설정
 const db = new sqlite3.Database(DB_PATH);
 
-// 최초 가입자에게 기본 권한을 부여
-db.get('SELECT * FROM users ORDER BY id ASC LIMIT 1', (err, row) => {
-    if (!row) {
-        const defaultUsername = 'first_user'; // 기본 사용자 이름
-        bcrypt.hash('admin123', 10, (err, hashedPassword) => {
-            if (err) {
-                console.error('비밀번호 해싱 실패:', err);
-            } else {
-                db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', [defaultUsername, hashedPassword, 1], (err) => {
-                    if (err) {
-                        console.error('사용자 추가 실패:', err);
-                    } else {
-                        console.log('첫 번째 사용자가 성공적으로 추가되었습니다.');
-                    }
-                });
-            }
-        });
-    }
+// Create database and table if not exists
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        password TEXT,
+        isAdmin INTEGER DEFAULT 0
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS pages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        content TEXT,
+        createdBy TEXT
+    )`);
+
+    // 최초 가입자에게 관리자 권한을 부여
+    db.get('SELECT * FROM users ORDER BY id ASC LIMIT 1', (err, row) => {
+        if (!row) {
+            db.run('INSERT INTO users (username, password, isAdmin) VALUES (?, ?, ?)', ['admin', 'admin123', 1]);
+        }
+    });
 });
 
 // 미들웨어 설정
